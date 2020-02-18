@@ -13,7 +13,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	
+
 	t, err := template.ParseGlob("./ui/html/*.tmpl")
 	if err != nil {
 		log.Println(err.Error())
