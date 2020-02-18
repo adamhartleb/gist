@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"strconv"
@@ -12,8 +13,19 @@ func index(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	
+	t, err := template.ParseGlob("./ui/html/*.tmpl")
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, "Internal Server Error", 500)
+		return
+	}
 
-	w.Write([]byte("Home"))
+	err = t.ExecuteTemplate(w, "base", nil)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, "Internal Server Error", 500)
+	}
 }
 
 func showGist(w http.ResponseWriter, r *http.Request) {
@@ -24,7 +36,7 @@ func showGist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write([]byte(fmt.Sprintf("Showing gist with id %d", id)))
+	fmt.Fprintf(w, "Display a specific gist with id %d", id)
 }
 
 func createGist(w http.ResponseWriter, r *http.Request) {
@@ -36,15 +48,3 @@ func createGist(w http.ResponseWriter, r *http.Request) {
 
 	w.Write([]byte("Create Gist"))
 }
-
-func main() {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", index)
-	mux.HandleFunc("/gist", showGist)
-	mux.HandleFunc("/gist/create", createGist)
-	if err := http.ListenAndServe(":3000", mux); err != nil {
-		log.Fatal(err)
-	}
-}
-
-
