@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
 	"os"
@@ -24,6 +25,12 @@ func (s myFileSystem) Open(name string) (http.File, error) {
 }
 
 func main() {
+	address := flag.String("address", ":4000", "HTTP Network Address")
+	flag.Parse()
+
+	infoLog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
+	errorLog := log.New(os.Stderr, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
+
 	mux := http.NewServeMux()
 
 
@@ -33,8 +40,17 @@ func main() {
 	mux.HandleFunc("/", index)
 	mux.HandleFunc("/gist", showGist)
 	mux.HandleFunc("/gist/create", createGist)
-	if err := http.ListenAndServe(":3000", mux); err != nil {
-		log.Fatal(err)
+
+	// Made custom http.Server to inject error logger.
+	srv := http.Server{
+		Addr: *address,
+		ErrorLog: errorLog,
+		Handler: mux,
+	}
+
+	infoLog.Printf("Starting server on %s", *address)
+	if err := srv.ListenAndServe(); err != nil {
+		errorLog.Fatal(err)
 	}
 }
 
