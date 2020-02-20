@@ -10,6 +10,11 @@ import (
 
 type myFileSystem string
 
+type application struct {
+	infoLog *log.Logger
+	errorLog *log.Logger
+}
+
 func (s myFileSystem) Open(name string) (http.File, error) {
 	fileInfo, err := os.Stat(path.Join(string(s), name))
 	if err != nil || fileInfo.IsDir()  {
@@ -28,8 +33,10 @@ func main() {
 	address := flag.String("address", ":4000", "HTTP Network Address")
 	flag.Parse()
 
-	infoLog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
-	errorLog := log.New(os.Stderr, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
+	app := application{
+		infoLog: log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime),
+		errorLog: log.New(os.Stderr, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile),
+	}
 
 	mux := http.NewServeMux()
 
@@ -37,20 +44,20 @@ func main() {
 	fileServer := http.FileServer(myFileSystem("./ui/static"))
 	mux.Handle("/static/", http.StripPrefix("/static", fileServer))
 
-	mux.HandleFunc("/", index)
-	mux.HandleFunc("/gist", showGist)
-	mux.HandleFunc("/gist/create", createGist)
+	mux.HandleFunc("/", app.index)
+	mux.HandleFunc("/gist", app.showGist)
+	mux.HandleFunc("/gist/create", app.createGist)
 
 	// Made custom http.Server to inject error logger.
 	srv := http.Server{
 		Addr: *address,
-		ErrorLog: errorLog,
+		ErrorLog: app.errorLog,
 		Handler: mux,
 	}
 
-	infoLog.Printf("Starting server on %s", *address)
+	app.infoLog.Printf("Starting server on %s", *address)
 	if err := srv.ListenAndServe(); err != nil {
-		errorLog.Fatal(err)
+		app.errorLog.Fatal(err)
 	}
 }
 
