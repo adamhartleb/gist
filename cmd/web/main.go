@@ -1,11 +1,14 @@
 package main
 
 import (
+	"database/sql"
 	"flag"
 	"log"
 	"net/http"
 	"os"
 	"path"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
 type myFileSystem string
@@ -29,8 +32,24 @@ func (s myFileSystem) Open(name string) (http.File, error) {
 	return file, err
 }
 
+func openDB(dsn string) (*sql.DB, error) {
+	db, err :=  sql.Open("mysql", dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	// The sql.Open method does not actually create a database connection so in order to test if everything
+	// was set up correctly, we ping the database.
+	if err := db.Ping(); err != nil {
+		return nil, err
+	}
+
+	return db, err
+}
+
 func main() {
 	address := flag.String("address", ":4000", "HTTP Network Address")
+	dsn := flag.String("dsn", "web:pass@/snippetbox?parseTime=true", "MySQL Data Source Name")
 	flag.Parse()
 
 	app := application{
@@ -38,21 +57,21 @@ func main() {
 		errorLog: log.New(os.Stderr, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile),
 	}
 
-	mux := http.NewServeMux()
 
+	db, err := openDB(*dsn)
+	if err != nil {
+		app.errorLog.Fatal(err)
+	}
 
-	fileServer := http.FileServer(myFileSystem("./ui/static"))
-	mux.Handle("/static/", http.StripPrefix("/static", fileServer))
-
-	mux.HandleFunc("/", app.index)
-	mux.HandleFunc("/gist", app.showGist)
-	mux.HandleFunc("/gist/create", app.createGist)
+	// A bit superfluous because the main function doesn't exit unless we terminate it so
+	// this never runs.
+	defer db.Close()
 
 	// Made custom http.Server to inject error logger.
 	srv := http.Server{
 		Addr: *address,
 		ErrorLog: app.errorLog,
-		Handler: mux,
+		Handler: app.routes(),
 	}
 
 	app.infoLog.Printf("Starting server on %s", *address)
