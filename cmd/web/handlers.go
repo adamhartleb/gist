@@ -43,5 +43,11 @@ func (app *application) createGist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write([]byte("Create Gist"))
+	id, err := app.snippets.Insert("This is a test", "This is another test", "7")
+	if err != nil {
+		app.serverError(w, err)
+		return
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/snippet?id=%d", id), http.StatusSeeOther)
 }

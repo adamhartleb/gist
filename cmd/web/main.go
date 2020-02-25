@@ -8,6 +8,8 @@ import (
 	"os"
 	"path"
 
+	"adamhartleb/gists/pkg/models/mysql"
+
 	_ "github.com/go-sql-driver/mysql"
 )
 
@@ -16,6 +18,7 @@ type myFileSystem string
 type application struct {
 	infoLog *log.Logger
 	errorLog *log.Logger
+	snippets *mysql.SnippetModel
 }
 
 func (s myFileSystem) Open(name string) (http.File, error) {
@@ -52,21 +55,22 @@ func main() {
 	dsn := flag.String("dsn", "web:pass@/snippetbox?parseTime=true", "MySQL Data Source Name")
 	flag.Parse()
 
-	app := application{
-		infoLog: log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime),
-		errorLog: log.New(os.Stderr, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile),
-	}
-
+	infoLog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
+	errorLog := log.New(os.Stderr, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
 
 	db, err := openDB(*dsn)
 	if err != nil {
-		app.errorLog.Fatal(err)
+		errorLog.Fatal(err)
 	}
-
 	// A bit superfluous because the main function doesn't exit unless we terminate it so
 	// this never runs.
 	defer db.Close()
 
+	app := application{
+		errorLog: errorLog,
+		infoLog: infoLog,
+		snippets: &mysql.SnippetModel{ DB: db },
+	}
 	// Made custom http.Server to inject error logger.
 	srv := http.Server{
 		Addr: *address,
