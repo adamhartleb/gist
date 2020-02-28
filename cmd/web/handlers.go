@@ -1,6 +1,9 @@
 package main
 
 import (
+	"adamhartleb/gists/pkg/models"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -33,7 +36,25 @@ func (app *application) showGist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Fprintf(w, "Display a specific gist with id %d", id)
+	snippet, err := app.snippets.Get(id)
+	if err != nil {
+		if errors.Is(err, models.ErrNoRecord) {
+			app.notFound(w)
+			return
+		}
+
+		app.serverError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	snipperToJson, err := json.Marshal(snippet)
+	if err != nil {
+		app.serverError(w, err)
+		return
+	}
+
+	w.Write(snipperToJson)
 }
 
 func (app *application) createGist(w http.ResponseWriter, r *http.Request) {
